@@ -4,6 +4,8 @@ using Celeste.Pico8;
 using Microsoft.Xna.Framework;
 using Monocle;
 using MonoMod.Cil;
+using MonoMod.RuntimeDetour;
+using MonoMod.Utils;
 
 namespace Celeste.Mod.PicoPlayer;
 
@@ -37,7 +39,13 @@ public class PicoPlayerModule : EverestModule {
     {
         On.Celeste.Player.TransitionTo += FixTransitionJank;
         On.Celeste.Player.Die += PicoDie;
-        IL.Celeste.Player.ctor += PatchHitbox;
+        On.Celeste.Player.Boost += FixBoost;
+        On.Celeste.Player.RedBoost += FixRedBoost;
+        On.Celeste.Level.LoadNewPlayer += ReplacePlayerWithOurs;
+        BoostCoroutineHook = new ILHook(
+            typeof(Booster).GetMethod("BoostRoutine", BindingFlags.NonPublic | BindingFlags.Instance)!.GetStateMachineTarget()!,
+            AllowPicoBoosting
+        );
         
         EverestModuleMetadata extVars = new() {
             Name = "ExtendedVariantMode",
@@ -46,79 +54,116 @@ public class PicoPlayerModule : EverestModule {
 
         ExtVarsLoaded = Everest.Loader.DependencyLoaded(extVars);
     }
-    
+
+    private ILHook BoostCoroutineHook;
+
 #nullable disable
 
     public override void Unload()
     {
         On.Celeste.Player.TransitionTo -= FixTransitionJank;
         On.Celeste.Player.Die -= PicoDie;
-        IL.Celeste.Player.ctor -= PatchHitbox;
+        On.Celeste.Player.Boost -= FixBoost;
+        On.Celeste.Player.RedBoost -= FixRedBoost;
+        On.Celeste.Level.LoadNewPlayer -= ReplacePlayerWithOurs;
+        
+        BoostCoroutineHook.Dispose();
 
+    }
+
+    private static Player ReplacePlayerWithOurs(On.Celeste.Level.orig_LoadNewPlayer orig, Vector2 position, PlayerSpriteMode mode) {
+        return new PicoPlayer(position, mode);
     }
 
     private static PlayerDeadBody PicoDie(On.Celeste.Player.orig_Die orig, Player self, Vector2 direction, bool evenIfInvincible, bool registerDeathInStats)
     {
-        return orig(self, self is PicoPlayer ? Vector2.Zero : direction, evenIfInvincible, registerDeathInStats);
+        return orig(self, self is PicoPlayer player && player.Overriding ? Vector2.Zero : direction, evenIfInvincible, registerDeathInStats);
+    }
+
+    private void AllowPicoBoosting(ILContext il) {
+        ILCursor cur = new(il);
+
+        cur.GotoNext(MoveType.After,
+            instr => instr.MatchCallvirt<StateMachine>("get_State"),
+            instr => instr.MatchLdcI4(out _)
+        );
+        ILLabel label = null;
+        cur.GotoNext(MoveType.After,
+            instr => instr.MatchBeq(out label)
+        );
+
+        cur.MoveAfterLabels();
+        cur.EmitLdarg0();
+        cur.EmitLdfld(BoosterCoroType.GetField("<>4__this")!);
+        cur.EmitLdarg0();
+        cur.EmitLdfld(BoosterCoroType.GetField("player")!);
+        cur.EmitDelegate(CheckIfBoosting);
+        cur.EmitBrtrue(label!);
+    }
+
+    private static readonly Type BoosterCoroType =
+        typeof(Booster)
+            .GetNestedType("<BoostRoutine>d__31", BindingFlags.NonPublic)!;
+    
+    private static bool CheckIfBoosting(Booster self, Player player) {
+        if (player is not PicoPlayer picoPlayer || !picoPlayer.Overriding) return false;
+        return picoPlayer.CurrentBooster == self;
+    }
+
+    private static void FixBoost(On.Celeste.Player.orig_Boost orig, Player self, Booster booster) {
+        if (self is PicoPlayer picoPlayer && picoPlayer.Overriding) {
+            if (picoPlayer.BoostTimer > 0 || picoPlayer.CurrentBooster != null) return;
+            picoPlayer.BoostTimer = 0.4f;
+        }
+
+        orig(self, booster);
+    }
+    
+    private static void FixRedBoost(On.Celeste.Player.orig_RedBoost orig, Player self, Booster booster) {
+        if (self is PicoPlayer picoPlayer && picoPlayer.Overriding) {
+            if (picoPlayer.BoostTimer > 0 || picoPlayer.CurrentBooster != null) return;
+            picoPlayer.BoostTimer = 0.4f;
+        }
+        orig(self, booster);
     }
 
     private static bool FixTransitionJank(On.Celeste.Player.orig_TransitionTo orig, Player self, Vector2 target, Vector2 direction)
     {
         var done = orig(self, target, direction);
-        if (!done || self is not Mod.PicoPlayer.PicoPlayer) return done;
-        
-        Logger.Log(LogLevel.Error, "!", "YO");
-        self.Position += direction * 4;
+        if (!done || self is not PicoPlayer picoPlayer || !picoPlayer.Overriding) return done;
+
+        self.Position.X = Math.Clamp(self.Position.X, self.level.Bounds.Left - 1, self.level.Bounds.Right - 7);
+        self.Position.Y = Math.Clamp(self.Position.Y, self.level.Bounds.Top - 1, self.level.Bounds.Bottom - 7);
+
         return true;
     }
-
-    private static readonly string[] HitboxNames = new[]
-    {
-        "normalHitbox", "duckHitbox", "normalHurtbox", "duckHurtbox", "starFlyHitbox", "starFlyHurtbox"
-    };
-
-    private static void PatchHitbox(ILContext il) {
-        ILCursor cur = new(il);
-
-        foreach (var hitboxName in HitboxNames) {
-            cur.GotoNext(MoveType.Before,
-                instr => instr.MatchStfld<Player>(hitboxName)
-            );
-            cur.MoveAfterLabels();
-            cur.EmitLdarg0();
-            cur.EmitDelegate(PatchPlayerHitbox);
-        }
-    }
-
-    private static Hitbox PatchPlayerHitbox(Hitbox hitbox, Player player) => 
-        player is PicoPlayer ? Mod.PicoPlayer.PicoPlayer.PicoHitbox : hitbox;
-    
     
 
-    [Command("picoplayer", "Force the player into PICO-8 mode, or back.")]
-    private static void PicoPlayer(int mode = -1)
-    {
+    [Command("picoplayer", "Force the player into PICO-8 mode, or back. Modes: swap, on, off")]
+    private static void PicoPlayer(string mode = "") {
         var scene = Celeste.Instance.scene;
         if (scene is not Level level) return;
-        foreach (Player player in level.Tracker.GetEntities<Player>())
-        {
-            if (player is PicoPlayer picoPlayer && mode != 1)
-            {
-                picoPlayer.RemoveSelf();
-                var newPlayer = new Player(picoPlayer.Position + Vector2.UnitY * 8, picoPlayer.DefaultSpriteMode);
-                newPlayer.Speed = picoPlayer.Speed;
-                newPlayer.StateMachine.State = Player.StNormal;
-                newPlayer.IntroType = picoPlayer.IntroType;
-                level.Add(newPlayer);
-                break;
+        foreach (Player player in level.Tracker.GetEntities<Player>()) {
+            if (player is not PicoPlayer picoPlayer) continue;
+            switch (mode) {
+                case "swap":
+                    Engine.Commands.Log($"Swapping {(picoPlayer.Overriding ? "from" : "to")} PICO-8 mode");
+                    picoPlayer.Overriding = !picoPlayer.Overriding;
+                    return;
+                case "off":
+                    Engine.Commands.Log($"Switching from PICO-8 mode");
+                    picoPlayer.Overriding = false;
+                    return;
+                case "on":
+                    Engine.Commands.Log($"Switching to PICO-8 mode");
+                    picoPlayer.Overriding = true;
+                    return;
+                default:
+                    Engine.Commands.Log("Modes: swap, on, off");
+                    return;
             }
-
-            if (mode == 1) continue;
-            player.RemoveSelf();
-            var newPicoPlayer = new PicoPlayer(player.Position - Vector2.UnitY * 8, player.DefaultSpriteMode);
-            newPicoPlayer.StateMachine.RemoveSelf();
-            level.Add(newPicoPlayer);
         }
+        Engine.Commands.Log("No PicoPlayer found!");
     }
 
     [Command("picowarp", "Warps to a level in PICO-8.")]
