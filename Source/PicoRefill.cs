@@ -72,7 +72,7 @@ public class PicoRefill : Refill {
         respawnTimer = 2.5f;
         
         if (player is not PicoPlayer picoPlayer)
-            throw new ArgumentException("Tried to activate a PICO-8 refill with an incompatible player object. This likely stems from a mod incompatibility!");
+            return;
         picoPlayer.Overriding = _refillKind switch {
             RefillKind.Swap => !picoPlayer.Overriding,
             RefillKind.On => true,
