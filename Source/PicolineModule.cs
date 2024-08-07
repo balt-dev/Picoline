@@ -7,19 +7,19 @@ using MonoMod.Cil;
 using MonoMod.RuntimeDetour;
 using MonoMod.Utils;
 
-namespace Celeste.Mod.PicoPlayer;
+namespace Celeste.Mod.Picoline;
 
-public class PicoPlayerModule : EverestModule {
-    public static PicoPlayerModule Instance { get; private set; }
+public class PicolineModule : EverestModule {
+    public static PicolineModule Instance { get; private set; }
 
-    public PicoPlayerModule() {
+    public PicolineModule() {
         Instance = this;
 #if DEBUG
         // debug builds use verbose logging
-        Logger.SetLogLevel(nameof(PicoPlayerModule), LogLevel.Verbose);
+        Logger.SetLogLevel(nameof(PicolineModule), LogLevel.Verbose);
 #else
         // release builds use info logging to reduce spam in log files
-        Logger.SetLogLevel(nameof(PicoPlayerModule), LogLevel.Info);
+        Logger.SetLogLevel(nameof(PicolineModule), LogLevel.Info);
 #endif
     }
 

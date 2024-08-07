@@ -1,4 +1,4 @@
-namespace Celeste.Mod.PicoPlayer;
+namespace Celeste.Mod.Picoline;
 
 public enum RefillKind {
     On,

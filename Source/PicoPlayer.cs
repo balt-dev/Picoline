@@ -1,7 +1,6 @@
 using System;
 using System.Collections;
 using System.Linq;
-using System.Reflection;
 using ExtendedVariants.Module;
 using ExtendedVariants.Variants;
 using Microsoft.Xna.Framework;
@@ -9,7 +8,7 @@ using Microsoft.Xna.Framework.Graphics;
 using Monocle;
 using MonoMod;
 
-namespace Celeste.Mod.PicoPlayer;
+namespace Celeste.Mod.Picoline;
 
 internal class Smoke : Entity
 {
@@ -321,12 +320,11 @@ public class PicoPlayer : Player {
         
         Leader.Position = Vector2.Zero;
         dashCooldownTimer = 0;
-        
-        // facing
-        if (Speed.X != 0)
-            Facing = Speed.X < 0 ? Facings.Left : Facings.Right;
 
         var input = level.InCutscene ? 0 : Input.MoveX.Value;
+        // facing
+        if (input != 0)
+            Facing = input < 0 ? Facings.Left : Facings.Right;
 
         if (!InControl) {
             if (StateMachine.State != StDummy) goto EndChecks;
@@ -651,6 +649,7 @@ public class PicoPlayer : Player {
                                 _jumpBuffer = 0;
                                 Speed.Y = -2 * Pico8SpeedUnit;
                                 Speed.X = -wallDir * (MaxRun + 1) * Pico8SpeedUnit;
+                                Facing = (Facings) (-wallDir);
                                 
                                 if (LiftSpeed == Vector2.Zero)
                                 {
@@ -818,17 +817,17 @@ public class PicoPlayer : Player {
             _dashAccel.Y *= 0.70710678118f;
     }
 
-    private float ExtVarsGravityMult() => PicoPlayerModule.Instance.ExtVarsLoaded ? __ExtVarsGravityMultUnchecked() : 1;
+    private float ExtVarsGravityMult() => PicolineModule.Instance.ExtVarsLoaded ? __ExtVarsGravityMultUnchecked() : 1;
     
     private float __ExtVarsGravityMultUnchecked() => 
         (float) ExtendedVariantsModule.Instance.TriggerManager.GetCurrentVariantValue(ExtendedVariantsModule.Variant.Gravity);
     
-    private float ExtVarsMaxFall() => PicoPlayerModule.Instance.ExtVarsLoaded ? __ExtVarsMaxFallUnchecked() : 1;
+    private float ExtVarsMaxFall() => PicolineModule.Instance.ExtVarsLoaded ? __ExtVarsMaxFallUnchecked() : 1;
     
     private float __ExtVarsMaxFallUnchecked() => 
         (float) ExtendedVariantsModule.Instance.TriggerManager.GetCurrentVariantValue(ExtendedVariantsModule.Variant.FallSpeed);
     
-    private bool ExtVarsConsumeJump() => PicoPlayerModule.Instance.ExtVarsLoaded && __ExtVarsConsumeJumpUnchecked();
+    private bool ExtVarsConsumeJump() => PicolineModule.Instance.ExtVarsLoaded && __ExtVarsConsumeJumpUnchecked();
 
     private bool __ExtVarsConsumeJumpUnchecked() {
         if (IsSolid(-3, 0) || IsSolid(3, 0)) return false;
@@ -838,7 +837,7 @@ public class PicoPlayer : Player {
         return true;
     }
     
-    private bool ExtVarsRefillJumps() => PicoPlayerModule.Instance.ExtVarsLoaded && __ExtVarsRefillJumpsUnchecked();
+    private bool ExtVarsRefillJumps() => PicolineModule.Instance.ExtVarsLoaded && __ExtVarsRefillJumpsUnchecked();
 
     private bool __ExtVarsRefillJumpsUnchecked() {
         var jumpCountVar = (JumpCount)
@@ -970,7 +969,7 @@ public class PicoPlayer : Player {
     private Vector2 _hairCalcPosition;
 
     private bool _drawAsSilhouette =>
-        (PicoPlayerModule.Instance.ExtVarsLoaded && __ExtVarsDrawAsSilhouetteUnchecked())
+        (PicolineModule.Instance.ExtVarsLoaded && __ExtVarsDrawAsSilhouetteUnchecked())
         || StateMachine.State == StDreamDash;
 
     private bool __ExtVarsDrawAsSilhouetteUnchecked() =>

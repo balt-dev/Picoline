@@ -1,4 +1,4 @@
-# PicoPlayer
+# Picoline
 
 Adds a way to replace Madeline with her PICO-8 rendition!
 

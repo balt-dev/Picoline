@@ -1,7 +1,7 @@
 using Microsoft.Xna.Framework;
 using Monocle;
 
-namespace Celeste.Mod.PicoPlayer;
+namespace Celeste.Mod.Picoline;
 
 public static class PicoColors {
     public static readonly Color Black = Calc.HexToColor("000000");

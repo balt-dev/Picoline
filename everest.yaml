@@ -1,6 +1,6 @@
-- Name: PicoPlayer
+- Name: Picoline
   Version: 0.1.0
-  DLL: bin/PicoPlayer.dll
+  DLL: bin/Picoline.dll
   Dependencies:
     - Name: EverestCore
       Version: 1.4673.0

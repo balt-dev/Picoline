@@ -3,7 +3,7 @@ using Celeste.Mod.Entities;
 using Microsoft.Xna.Framework;
 using Monocle;
 
-namespace Celeste.Mod.PicoPlayer;
+namespace Celeste.Mod.Picoline;
 
 [CustomEntity("PicoRefill")]
 public class PicoRefill : Refill {
