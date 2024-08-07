@@ -42,9 +42,4 @@ public class PicoTrigger : Trigger {
             _ => picoPlayer.Overriding
         };
     }
-
-    public override void Update() {
-        base.Update();
-        if (_cooldown > 0) _cooldown -= Engine.DeltaTime;
-    }
 }
