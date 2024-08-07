@@ -3,5 +3,7 @@ namespace Celeste.Mod.Picoline;
 public enum RefillKind {
     On,
     Off,
-    Swap
+    Swap,
+    Inside,
+    Outside
 }

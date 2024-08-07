@@ -1,4 +1,6 @@
 
+triggers.PicoTrigger.placements.name.pico8TriggerInside=PICO-8 Trigger (While Inside)
+triggers.PicoTrigger.placements.name.pico8TriggerOutside=PICO-8 Trigger (While Outside)
 triggers.PicoTrigger.placements.name.pico8TriggerOn=PICO-8 Trigger (Force On)
 triggers.PicoTrigger.placements.name.pico8TriggerOff=PICO-8 Trigger (Force Off)
 triggers.PicoTrigger.placements.name.pico8TriggerSwap=PICO-8 Trigger (Swap)

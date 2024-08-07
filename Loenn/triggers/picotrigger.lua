@@ -2,6 +2,14 @@ return {
     name = "PicoTrigger",
     placements = {
         {
+            name = "pico8TriggerInside",
+            data = {kind = "inside"}
+        },
+        {
+            name = "pico8TriggerOutside",
+            data = {kind = "outside"}
+        },
+        {
             name = "pico8TriggerOn",
             data = {kind = "on"}
         },
@@ -12,13 +20,13 @@ return {
         {
             name = "pico8TriggerSwap",
             data = {kind = "swap"}
-        }
+        },
     },
     fieldInformation = {
         kind = {
             fieldType = "string",
-            default = "swap",
-            options  = {swap = "swap", on = "on", off = "off"}
+            default = "outside",
+            options  = {swap = "swap", on = "on", off = "off", inside = "inside", outside = "outside"}
         }
     },
     triggerText = function(room, trigger)

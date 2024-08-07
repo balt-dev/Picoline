@@ -16,18 +16,34 @@ public class PicoTrigger : Trigger {
             "on" => RefillKind.On,
             "off" => RefillKind.Off,
             "swap" => RefillKind.Swap,
-            _ => throw new InvalidEnumArgumentException("Attribute \"kind\" of PICO-8 Trigger must be either \"on\", \"off\", or \"swap\"")
+            "inside" => RefillKind.Inside,
+            "outside" => RefillKind.Outside,
+            _ => throw new InvalidEnumArgumentException("Attribute \"kind\" of PICO-8 Trigger must be either \"on\", \"off\", \"swap\", \"inside\", or \"outside\"")
         };
     }
 
     public override void OnEnter(Player player) {
+        base.OnEnter(player);
         if (player is not PicoPlayer picoPlayer)
             throw new ArgumentException("Tried to activate a PICO-8 trigger with an incompatible player object. This likely stems from a mod incompatibility!");
         if (_cooldown > 0) return;
         picoPlayer.Overriding = _refillKind switch {
             RefillKind.Swap => !picoPlayer.Overriding,
-            RefillKind.On => true,
-            RefillKind.Off => false,
+            RefillKind.Inside or RefillKind.On => true,
+            RefillKind.Outside or RefillKind.Off => false,
+        };
+        _cooldown = 0.1f;
+    }
+
+    public override void OnLeave(Player player) {
+        base.OnLeave(player);
+        if (player is not PicoPlayer picoPlayer)
+            throw new ArgumentException("Tried to activate a PICO-8 trigger with an incompatible player object. This likely stems from a mod incompatibility!");
+        if (_cooldown > 0) return;
+        picoPlayer.Overriding = _refillKind switch {
+            RefillKind.Inside => false,
+            RefillKind.Outside => true,
+            _ => picoPlayer.Overriding
         };
         _cooldown = 0.1f;
     }
