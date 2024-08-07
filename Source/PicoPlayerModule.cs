@@ -12,15 +12,6 @@ namespace Celeste.Mod.PicoPlayer;
 public class PicoPlayerModule : EverestModule {
     public static PicoPlayerModule Instance { get; private set; }
 
-    public override Type SettingsType => typeof(PicoPlayerModuleSettings);
-    public static PicoPlayerModuleSettings Settings => (PicoPlayerModuleSettings) Instance._Settings;
-
-    public override Type SessionType => typeof(PicoPlayerModuleSession);
-    public static PicoPlayerModuleSession Session => (PicoPlayerModuleSession) Instance._Session;
-
-    public override Type SaveDataType => typeof(PicoPlayerModuleSaveData);
-    public static PicoPlayerModuleSaveData SaveData => (PicoPlayerModuleSaveData) Instance._SaveData;
-
     public PicoPlayerModule() {
         Instance = this;
 #if DEBUG
@@ -41,6 +32,7 @@ public class PicoPlayerModule : EverestModule {
         On.Celeste.Player.Die += PicoDie;
         On.Celeste.Player.Boost += FixBoost;
         On.Celeste.Player.RedBoost += FixRedBoost;
+        On.Celeste.Player.ChaserState.ctor += FixOmniManBadeline;
         On.Celeste.Level.LoadNewPlayer += ReplacePlayerWithOurs;
         BoostCoroutineHook = new ILHook(
             typeof(Booster).GetMethod("BoostRoutine", BindingFlags.NonPublic | BindingFlags.Instance)!.GetStateMachineTarget()!,
@@ -65,15 +57,26 @@ public class PicoPlayerModule : EverestModule {
         On.Celeste.Player.Die -= PicoDie;
         On.Celeste.Player.Boost -= FixBoost;
         On.Celeste.Player.RedBoost -= FixRedBoost;
+        On.Celeste.Player.ChaserState.ctor -= FixOmniManBadeline;
         On.Celeste.Level.LoadNewPlayer -= ReplacePlayerWithOurs;
         
         BoostCoroutineHook.Dispose();
-
     }
 
+    private static void FixOmniManBadeline(On.Celeste.Player.ChaserState.orig_ctor orig, ref Player.ChaserState self, Player player) {
+        orig(ref self, player);
+        if (player is not PicoPlayer { Overriding: true }) return;
+        
+        self.Position.X += 4;
+        self.Position.Y += 8;
+    }
+
+    // It's fineeeeee :)
+    #pragma warning disable CL0003 
     private static Player ReplacePlayerWithOurs(On.Celeste.Level.orig_LoadNewPlayer orig, Vector2 position, PlayerSpriteMode mode) {
         return new PicoPlayer(position, mode);
     }
+    #pragma warning restore
 
     private static PlayerDeadBody PicoDie(On.Celeste.Player.orig_Die orig, Player self, Vector2 direction, bool evenIfInvincible, bool registerDeathInStats)
     {
@@ -106,12 +109,12 @@ public class PicoPlayerModule : EverestModule {
             .GetNestedType("<BoostRoutine>d__31", BindingFlags.NonPublic)!;
     
     private static bool CheckIfBoosting(Booster self, Player player) {
-        if (player is not PicoPlayer picoPlayer || !picoPlayer.Overriding) return false;
+        if (player is not PicoPlayer { Overriding: true } picoPlayer) return false;
         return picoPlayer.CurrentBooster == self;
     }
 
     private static void FixBoost(On.Celeste.Player.orig_Boost orig, Player self, Booster booster) {
-        if (self is PicoPlayer picoPlayer && picoPlayer.Overriding) {
+        if (self is PicoPlayer { Overriding: true } picoPlayer) {
             if (picoPlayer.BoostTimer > 0 || picoPlayer.CurrentBooster != null) return;
             picoPlayer.BoostTimer = 0.4f;
         }
@@ -120,7 +123,7 @@ public class PicoPlayerModule : EverestModule {
     }
     
     private static void FixRedBoost(On.Celeste.Player.orig_RedBoost orig, Player self, Booster booster) {
-        if (self is PicoPlayer picoPlayer && picoPlayer.Overriding) {
+        if (self is PicoPlayer { Overriding: true } picoPlayer) {
             if (picoPlayer.BoostTimer > 0 || picoPlayer.CurrentBooster != null) return;
             picoPlayer.BoostTimer = 0.4f;
         }
@@ -130,11 +133,14 @@ public class PicoPlayerModule : EverestModule {
     private static bool FixTransitionJank(On.Celeste.Player.orig_TransitionTo orig, Player self, Vector2 target, Vector2 direction)
     {
         var done = orig(self, target, direction);
-        if (!done || self is not PicoPlayer picoPlayer || !picoPlayer.Overriding) return done;
+        if (!done || self is not PicoPlayer { Overriding: true }) return done;
 
         self.Position.X = Math.Clamp(self.Position.X, self.level.Bounds.Left - 1, self.level.Bounds.Right - 7);
         self.Position.Y = Math.Clamp(self.Position.Y, self.level.Bounds.Top - 1, self.level.Bounds.Bottom - 7);
 
+        if (direction.Y < 0)
+            self.Speed.Y = Math.Min(self.Speed.Y, -150);
+        
         return true;
     }
     
@@ -143,7 +149,7 @@ public class PicoPlayerModule : EverestModule {
     private static void PicoPlayer(string mode = "") {
         var scene = Celeste.Instance.scene;
         if (scene is not Level level) return;
-        foreach (Player player in level.Tracker.GetEntities<Player>()) {
+        foreach (var player in level.Tracker.GetEntities<Player>()) {
             if (player is not PicoPlayer picoPlayer) continue;
             switch (mode) {
                 case "swap":

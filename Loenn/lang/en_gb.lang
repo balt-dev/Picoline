@@ -1,0 +1,10 @@
+
+triggers.PicoTrigger.placements.name.pico8TriggerOn=PICO-8 Trigger (Force On)
+triggers.PicoTrigger.placements.name.pico8TriggerOff=PICO-8 Trigger (Force Off)
+triggers.PicoTrigger.placements.name.pico8TriggerSwap=PICO-8 Trigger (Swap)
+triggers.PicoTrigger.attributes.name.kind=Trigger Behavior
+
+entities.PicoRefill.placements.name.pico8RefillOn=PICO-8 Refill (Force On)
+entities.PicoRefill.placements.name.pico8RefillOff=PICO-8 Refill (Force Off)
+entities.PicoRefill.placements.name.pico8RefillSwap=PICO-8 Refill (Swap)
+entities.PicoRefill.attributes.name.kind=Refill Behavior

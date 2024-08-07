@@ -11,25 +11,6 @@ using MonoMod;
 
 namespace Celeste.Mod.PicoPlayer;
 
-internal static class PicoColors {
-    public static readonly Color Black = Calc.HexToColor("000000");
-    public static readonly Color DarkBlue = Calc.HexToColor("1d2b53");
-    public static readonly Color DarkRed = Calc.HexToColor("7e2553");
-    public static readonly Color DarkGreen = Calc.HexToColor("008751");
-    public static readonly Color Brown = Calc.HexToColor("ab5236");
-    public static readonly Color Grey = Calc.HexToColor("5f574f");
-    public static readonly Color LightGrey = Calc.HexToColor("c2c3c7");
-    public static readonly Color White = Calc.HexToColor("fff1e8");
-    public static readonly Color Red = Calc.HexToColor("ff004d");
-    public static readonly Color Orange = Calc.HexToColor("ffa300");
-    public static readonly Color Yellow = Calc.HexToColor("ffec27");
-    public static readonly Color Green = Calc.HexToColor("00e436");
-    public static readonly Color Cyan = Calc.HexToColor("29adff");
-    public static readonly Color Purple = Calc.HexToColor("83769c");
-    public static readonly Color Pink = Calc.HexToColor("ff77a8");
-    public static readonly Color Cream = Calc.HexToColor("ffccaa");
-}
-
 internal class Smoke : Entity
 {
     private static readonly MTexture[] Frames = new MTexture[3] {
@@ -106,6 +87,7 @@ public class PicoPlayer : Player {
         get => _overriding;
         set {
             if (value == _overriding) return;
+            StateMachine.state = StNormal;
             if (value) {
                 _overriding = true;
                 StateMachine.RemoveSelf();
@@ -114,6 +96,7 @@ public class PicoPlayer : Player {
                 Position.Y -= 8;
                 Collider = PicoHitbox;
                 hurtbox = PicoHitbox;
+                _hairCalcPosition = Position;
                 _oldLightPosition = Light.Position;
                 Light.Position = new Vector2(4, 4);
                 _oldHairNodeCount = Hair.Nodes.Count;
@@ -311,6 +294,12 @@ public class PicoPlayer : Player {
             return;
         }
 
+        if (
+            StateMachine.state is
+            StIntroJump or StIntroRespawn or StIntroWalk or StIntroMoonJump or StIntroWakeUp or StIntroThinkForABit
+        )
+            StateMachine.state = StNormal;
+
         actor_Update();
 
         if (StateMachine.state == StFrozen) goto End;
@@ -390,6 +379,10 @@ public class PicoPlayer : Player {
 
         level.Camera.Position += (CameraTarget - level.Camera.Position) * (1f - (float) Math.Pow(0.01f, Engine.DeltaTime));
         
+        UpdateCarry();
+        if (minHoldTimer > 0)
+            minHoldTimer -= Engine.DeltaTime;
+        
         var jump = Input.Jump.Pressed && !_jumpWasPressed && !level.InCutscene;
         _jumpWasPressed = Input.Jump.Pressed;
         if (jump)
@@ -400,8 +393,7 @@ public class PicoPlayer : Player {
         var dash = Input.Dash.Pressed && !_dashWasPressed && !level.InCutscene;
         _dashWasPressed = Input.Dash.Pressed;
 
-        if (Input.MoveY < 0)
-            Ducking = true;
+        Ducking = Input.MoveY > 0 && onGround;
 
         if (dreamDashCanEndTimer > 0) 
             dreamDashCanEndTimer -= Engine.DeltaTime;
@@ -415,12 +407,18 @@ public class PicoPlayer : Player {
             );
         }
 
-        if (StateMachine.state == StLaunch && starFlyTimer > 0) {
-            StarFlyEnd();
-            starFlyTimer = 0;
+        if (StateMachine.state == StSummitLaunch) {
+            if (_lastState != StSummitLaunch)
+                SummitLaunchBegin();
+            SummitLaunchUpdate();
+            goto EndChecks;
         }
-        
-        if (starFlyTimer > 0) {
+
+        if (StateMachine.state != StStarFly && (_lastState == StStarFly || starFlyTimer > 0)) {
+            StarFlyEnd();
+            starFlyTransforming = false;
+            starFlyTimer = 0;
+        } else if (starFlyTimer > 0) {
             if (dash) {
                 PicoDash();
                 starFlyTimer = 0;
@@ -446,6 +444,7 @@ public class PicoPlayer : Player {
         if (StateMachine.state == StBoost && (BoostTimer > 0 || _lastState != StBoost)) {
             if (_lastState != StBoost) {
                 BoostBegin();
+                LastBooster = CurrentBooster;
                 BoostTimer = 0.4f;
             }
             dashAttackTimer = 0;
@@ -499,7 +498,7 @@ public class PicoPlayer : Player {
         if (onGround || isUnderwater) {
             if (_grace == 0) ExtVarsRefillJumps();
             _grace = 6;
-            if (RefillDash()) {
+            if (!Inventory.NoRefills && RefillDash()) {
                 Sfx(54);
             }
         }
@@ -571,7 +570,7 @@ public class PicoPlayer : Player {
                 dashAttackTimer -= Engine.DeltaTime * 60;
             if (StateMachine.state == StRedDash && dash)
                 PicoDash();
-            if (!_boosting) AddSmoke(X, Y);
+            if (!_boosting && StateMachine.state is not StRedDash) AddSmoke(X, Y);
         } else {
             Stop(dreamSfxLoop);
                 
@@ -606,6 +605,10 @@ public class PicoPlayer : Player {
                     // gravity
                     var maxfall = 2f * ExtVarsMaxFall();
                     var gravity = 0.21f / 2 * ExtVarsGravityMult();
+                    if (Holding is { SlowFall: true } && Input.MoveY <= 0) {
+                        maxfall *= .3f;
+                        gravity *= .5f;
+                    }
 
                     if (Math.Abs(Speed.Y) <= 0.15f)
                         gravity *= 0.5f;
@@ -666,11 +669,25 @@ public class PicoPlayer : Player {
                     }
                 }
 
-            if (Dashes > 0 && dash)
+            if (Dashes > 0 && dash && Holding == null)
                 PicoDash();
             else if (dash && Dashes <= 0 && Inventory.Dashes > 0) {
                 Sfx(9);
                 AddSmoke(X, Y);
+            }
+        }
+
+        if (StateMachine.state != StDreamDash) {
+            if (Input.GrabCheck) {
+                if (!Ducking)
+                    foreach (Holdable hold in Scene.Tracker.GetComponents<Holdable>())
+                        if (hold.Check(this) && Pickup(hold))
+                            break;
+            } else if (Holding != null) {
+                if (Ducking)
+                    Drop();
+                else
+                    Throw();
             }
         }
         
@@ -680,19 +697,36 @@ public class PicoPlayer : Player {
             MoveV(Speed.Y * Engine.DeltaTime, OnCollideV);
         }
         
+        UpdateChaserStates();
+        
         // animation
         _spriteOff += 0.125f;
         if (StateMachine.State != StDummy || !DummyAutoAnimate) {
-            if (!onGround)
+            if (!onGround) {
+                Sprite.CurrentAnimationID = IsSolid(input, 0) ? "wallslide" : "fallSlow";
                 _sprite = IsSolid(input, 0) ? 5 : 3;
-            else if (Input.MoveY > 0)
+            }
+            else if (Input.MoveY > 0) {
+                Sprite.CurrentAnimationID = "duck";
                 _sprite = 6;
-            else if (Input.MoveY < 0)
+            }
+            else if (Input.MoveY < 0) {
+                Sprite.CurrentAnimationID = "lookUp";
                 _sprite = 7;
-            else if (Speed.X == 0 || Input.MoveX == 0)
+            }
+            else if (Speed.X == 0 || Input.MoveX == 0) {
+                Sprite.CurrentAnimationID = "idle";
                 _sprite = 1;
-            else
+            }
+            else {
+                Sprite.CurrentAnimationID = "runFast";
                 _sprite = 1 + _spriteOff % 4;
+            }
+
+            if (StateMachine.State == StDreamDash)
+                Sprite.CurrentAnimationID = "dreamDashLoop";
+            else if (dashAttackTimer > 0)
+                Sprite.CurrentAnimationID = "dash";
         }
         
         if (EnforceLevelBounds) level.EnforceBounds(this);
@@ -745,7 +779,7 @@ public class PicoPlayer : Player {
             StateMachine.state = CurrentBooster!.red ? StRedDash : StDash;
             dashAttackTimer = 8;
             CurrentBooster.PlayerBoosted(this, DashDir);
-            CurrentBooster = null;
+            LastBooster = CurrentBooster = null;
         } else {
             AddSmoke(X, Y);
             Dashes--;
@@ -818,6 +852,17 @@ public class PicoPlayer : Player {
     private new void OnCollideH(CollisionData data) {
         if (StateMachine.State == StDreamDash)
             return;
+
+        if (StateMachine.State == StStarFly) {
+            if (starFlyTimer < StarFlyEndNoBounceTime)
+                Speed.X = 0;
+            else {
+                Play("event:/game/06_reflection/feather_state_bump");
+                Input.Rumble(RumbleStrength.Light, RumbleLength.Medium);
+                Speed.X *= StarFlyWallBounce;
+            }
+            return;
+        }
         
         if (
             DashAttacking && data.Hit is { OnDashCollide: not null } &&
@@ -863,6 +908,17 @@ public class PicoPlayer : Player {
     private new void OnCollideV(CollisionData data) {
         if (StateMachine.State == StDreamDash)
             return;
+        
+        if (StateMachine.State == StStarFly) {
+            if (starFlyTimer < StarFlyEndNoBounceTime)
+                Speed.Y = 0;
+            else {
+                Play("event:/game/06_reflection/feather_state_bump");
+                Input.Rumble(RumbleStrength.Light, RumbleLength.Medium);
+                Speed.Y *= StarFlyWallBounce;
+            }
+            return;
+        }
         
         if (
             DashAttacking && data.Hit is { OnDashCollide: not null }
@@ -939,14 +995,17 @@ public class PicoPlayer : Player {
         if (Facing == Facings.Left) flip |= SpriteEffects.FlipHorizontally;
 
         var hairColor = HairColor();
-        
-        int i = 0;
-        foreach (var node in Hair.Nodes) {
-            var hairSize = StateMachine.State == StStarFly && i == 0 ? 3 : i < 2 ? 2 : 1;
-            PicoCircle(new Vector2(node.X, node.Y), hairSize, hairColor);
-            i++;
+
+        if (StateMachine.state != StRedDash) {
+            var i = 0;
+            foreach (var node in Hair.Nodes)
+            {
+                var hairSize = StateMachine.State == StStarFly && i == 0 ? 3 : i < 2 ? 2 : 1;
+                PicoCircle(new Vector2(node.X, node.Y), hairSize, hairColor);
+                i++;
+            }
         }
-        
+
         if (StateMachine.state == StStarFly) return;
         playerTexture.Draw(_hairCalcPosition, Vector2.Zero, _drawAsSilhouette ? hairColor : Color.White, 1f, 0f, flip);
         hairTexture.Draw(_hairCalcPosition, Vector2.Zero, hairColor, 1f, 0f, flip);
