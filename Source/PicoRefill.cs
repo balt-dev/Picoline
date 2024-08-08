@@ -58,20 +58,20 @@ public class PicoRefill : Refill {
 
     public override void Update() {
         base.Update();
-        var player = level.Tracker.GetEntity<Player>();
+        var player = level.Tracker.GetEntity<global::Celeste.Player>();
         light.Alpha = CanActivate(player) ? 1.0f : 0.3f;
         bloom.Alpha = CanActivate(player) ? 1.0f : 0.3f;
 
     }
 
-    private new void OnPlayer(Player player) {
+    private new void OnPlayer(global::Celeste.Player player) {
         if (!CanActivate(player)) return;
         Audio.Play("event:/game/general/diamond_touch", Position);
         Input.Rumble(RumbleStrength.Medium, RumbleLength.Medium);
         Collidable = false;
         respawnTimer = 2.5f;
         
-        if (player is not PicoPlayer picoPlayer)
+        if (player is not Player picoPlayer)
             return;
         picoPlayer.Overriding = _refillKind switch {
             RefillKind.Swap => !picoPlayer.Overriding,
@@ -82,8 +82,8 @@ public class PicoRefill : Refill {
         Add(new Coroutine(RefillRoutine(player)));
     }
     
-    private bool CanActivate(Player player) {
-        if (player is not PicoPlayer picoPlayer) return false;
+    private bool CanActivate(global::Celeste.Player player) {
+        if (player is not Player picoPlayer) return false;
         return _refillKind switch {
             RefillKind.Swap => true,
             RefillKind.On when !picoPlayer.Overriding => true,

@@ -21,9 +21,9 @@ public class PicoTrigger : Trigger {
         };
     }
 
-    public override void OnEnter(Player player) {
+    public override void OnEnter(global::Celeste.Player player) {
         base.OnEnter(player);
-        if (player is not PicoPlayer picoPlayer)
+        if (player is not Player picoPlayer)
             return;
         picoPlayer.Overriding = _refillKind switch {
             RefillKind.Swap => !picoPlayer.Overriding,
@@ -32,9 +32,9 @@ public class PicoTrigger : Trigger {
         };
     }
 
-    public override void OnLeave(Player player) {
+    public override void OnLeave(global::Celeste.Player player) {
         base.OnLeave(player);
-        if (player is not PicoPlayer picoPlayer)
+        if (player is not Player picoPlayer)
             return;
         picoPlayer.Overriding = _refillKind switch {
             RefillKind.Inside => false,

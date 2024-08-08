@@ -24,18 +24,18 @@ internal class Smoke : Entity
     
     internal Smoke(Vector2 position) : base(position) {
         _spd.Y = -0.1f;
-        _spd.X = -0.1f + PicoPlayer.Rand.NextFloat(.2f);
-        X += PicoPlayer.Rand.NextFloat(2) - 1f;
-        Y += PicoPlayer.Rand.NextFloat(2) - 1f;
-        if (PicoPlayer.Rand.NextSingle() > 0.5)
+        _spd.X = -0.1f + Player.Rand.NextFloat(.2f);
+        X += Player.Rand.NextFloat(2) - 1f;
+        Y += Player.Rand.NextFloat(2) - 1f;
+        if (Player.Rand.NextSingle() > 0.5)
             _fx |= SpriteEffects.FlipHorizontally;
-        if (PicoPlayer.Rand.NextSingle() > 0.5)
+        if (Player.Rand.NextSingle() > 0.5)
             _fx |= SpriteEffects.FlipVertically;
     }
     
     public override void Update()
     {
-        Position += _spd * PicoPlayer.Pico8SpeedUnit * Engine.DeltaTime;
+        Position += _spd * Player.Pico8SpeedUnit * Engine.DeltaTime;
         _spr += Engine.DeltaTime * 6;
         if (_spr < 3) return;
         RemoveSelf();
@@ -46,8 +46,9 @@ internal class Smoke : Entity
     }
 }
 
-[TrackedAs(typeof(Player))]
-public class PicoPlayer : Player {
+[TrackedAs(typeof(global::Celeste.Player))]
+// EeveeHelper needs this type to be specifically called "Player" for its attach thing to work. For fuck's sake...
+public class Player : global::Celeste.Player {
     
     private static readonly MTexture PlayerAtlas = GFX.Game["PicoPlayer/player_atlas"];
 
@@ -176,7 +177,7 @@ public class PicoPlayer : Player {
 
     public float BoostTimer;
     
-    static PicoPlayer()
+    static Player()
     {
         PlayerTextures = new MTexture[24];
         for (var i = 0; i < 24; i++)
@@ -212,7 +213,7 @@ public class PicoPlayer : Player {
         }
     }
 
-    public PicoPlayer(Vector2 position, PlayerSpriteMode mode) : base(position, mode) {
+    public Player(Vector2 position, PlayerSpriteMode mode) : base(position, mode) {
         /*StateMachine.RemoveSelf();
         reflection.RemoveSelf();
         Hair.RemoveSelf();
