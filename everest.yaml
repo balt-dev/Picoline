@@ -1,5 +1,5 @@
 - Name: Picoline
-  Version: 0.2.1
+  Version: 0.2.2
   DLL: bin/Picoline.dll
   Dependencies:
     - Name: EverestCore
