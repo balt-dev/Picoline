@@ -596,10 +596,12 @@ public class Player : global::Celeste.Player {
                     if (!onGround)
                         accel = 0.4f;
                     
-                    if (Math.Abs(Speed.X / Pico8SpeedUnit) > MaxRun)
-                        Speed.X = Approach(Speed.X / Pico8SpeedUnit, Math.Sign(Speed.X) * MaxRun, Deceleration * Engine.DeltaTime * 60) * Pico8SpeedUnit;
+                    float maxRun = ExtVarsHorizontalSpeed() * MaxRun;
+                    
+                    if (Math.Abs(Speed.X / Pico8SpeedUnit) > maxRun)
+                        Speed.X = Approach(Speed.X / Pico8SpeedUnit, Math.Sign(Speed.X) * maxRun, Deceleration * Engine.DeltaTime * 60) * Pico8SpeedUnit;
                     else
-                        Speed.X = Approach(Speed.X / Pico8SpeedUnit, input * MaxRun, accel * Engine.DeltaTime * 60) * Pico8SpeedUnit;
+                        Speed.X = Approach(Speed.X / Pico8SpeedUnit, input * maxRun, accel * Engine.DeltaTime * 60) * Pico8SpeedUnit;
                     
                     // gravity
                     var maxfall = 2f * ExtVarsMaxFall();
@@ -848,6 +850,11 @@ public class Player : global::Celeste.Player {
     
     private float __ExtVarsJumpHeightUnchecked() => 
         (float) ExtendedVariantsModule.Instance.TriggerManager.GetCurrentVariantValue(ExtendedVariantsModule.Variant.JumpHeight);
+
+    private float ExtVarsHorizontalSpeed() => PicolineModule.Instance.ExtVarsLoaded ? __ExtVarsHorizontalSpeedUnchecked() : 1;
+    
+    private float __ExtVarsHorizontalSpeedUnchecked() => 
+        (float) ExtendedVariantsModule.Instance.TriggerManager.GetCurrentVariantValue(ExtendedVariantsModule.Variant.SpeedX);
     
     private bool ExtVarsConsumeJump() => PicolineModule.Instance.ExtVarsLoaded && __ExtVarsConsumeJumpUnchecked();
 

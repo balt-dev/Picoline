@@ -24,6 +24,7 @@ Despite this, **this mod explicitly supports a select few Extended Variants**, n
 - `Jump Count`
 - `Jump Boost`
 - `Jump Height`
+- `Horizontal speed`
 - `Gravity` 
 - `Max Fall Speed`
 - `Madeline is Silhouette`.
