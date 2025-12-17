@@ -1,12 +1,14 @@
 using System;
 using System.Collections;
 using System.Linq;
+using System.Reflection;
 using ExtendedVariants.Module;
 using ExtendedVariants.Variants;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Monocle;
 using MonoMod;
+using MonoMod.Utils;
 
 namespace Celeste.Mod.Picoline;
 
@@ -280,7 +282,7 @@ public class Player : global::Celeste.Player {
         };
     }
 
-    private static void Sfx(int sfx) => Audio.Play("event:/classic/sfx" + sfx);
+    private static void Sfx(int sfx) => Audio.Play("event:/classic/sfx" + sfx);    
 
     [MonoModLinkTo("Celeste.Actor", "Update")]
     private void actor_Update() { }
@@ -288,10 +290,21 @@ public class Player : global::Celeste.Player {
     private IEnumerator _cassetteFlight;
     private float _cassetteFlightTimer;
     
+    private DynamicData dynData;
+    
     public override void Update() {
         if (!_overriding) {
             base.Update();
             return;
+        }
+        if (dynData == null) {
+            dynData = DynamicData.For(this);
+        }
+        
+        if (Dead) {
+            dynData.Set("framesAlive", 0);
+        } else {
+            dynData.Set("framesAlive", ((int) dynData.Get("framesAlive")) + 1);
         }
 
         if (
@@ -1022,8 +1035,26 @@ public class Player : global::Celeste.Player {
 
         var hairColor = HairColor();
 
+        if (StateMachine.state != StStarFly) {
+            playerTexture.Draw(_hairCalcPosition - Vector2.UnitX, Vector2.Zero, Color.Black, 1f, 0f, flip);
+            playerTexture.Draw(_hairCalcPosition - Vector2.UnitY, Vector2.Zero, Color.Black, 1f, 0f, flip);
+            playerTexture.Draw(_hairCalcPosition + Vector2.UnitX, Vector2.Zero, Color.Black, 1f, 0f, flip);
+            playerTexture.Draw(_hairCalcPosition + Vector2.UnitY, Vector2.Zero, Color.Black, 1f, 0f, flip);
+            hairTexture.Draw(_hairCalcPosition - Vector2.UnitX, Vector2.Zero, Color.Black, 1f, 0f, flip);
+            hairTexture.Draw(_hairCalcPosition - Vector2.UnitY, Vector2.Zero, Color.Black, 1f, 0f, flip);
+            hairTexture.Draw(_hairCalcPosition + Vector2.UnitX, Vector2.Zero, Color.Black, 1f, 0f, flip);
+            hairTexture.Draw(_hairCalcPosition + Vector2.UnitY, Vector2.Zero, Color.Black, 1f, 0f, flip);
+        }
+
         if (StateMachine.state != StRedDash) {
             var i = 0;
+            foreach (var node in Hair.Nodes)
+            {
+                var hairSize = StateMachine.State == StStarFly && i == 0 ? 3 : i < 2 ? 2 : 1;
+                PicoCircle(new Vector2(node.X, node.Y), hairSize + 1, Color.Black);
+                i++;
+            }
+            i = 0;
             foreach (var node in Hair.Nodes)
             {
                 var hairSize = StateMachine.State == StStarFly && i == 0 ? 3 : i < 2 ? 2 : 1;
