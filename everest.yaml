@@ -1,11 +1,11 @@
 - Name: Picoline
-  Version: 0.2.2
+  Version: 0.3.0
   DLL: bin/Picoline.dll
   Dependencies:
     - Name: EverestCore
       Version: 1.4673.0
   OptionalDependencies:
     - Name: ExtendedVariantMode
-      Version: 0.38.0
+      Version: 0.47.4
     - Name: MaxHelpingHand
-      Version: 1.30.8
+      Version: 1.39.9

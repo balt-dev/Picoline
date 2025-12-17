@@ -17,4 +17,13 @@ All mechanics _in the vanilla game that are not left unused_ have been tested an
 
 Compatibility with other mods that alter the player (e.g. custom `Booster`s, or custom dash states like Communal Helper's `Dream Dash Refill`) should be expected to be slim to none in PICO-8 mode.
 
-Despite this, **this mod explicitly supports a select few Extended Variants**, namely `Dash`/`Jump Count`, `Gravity`, `Max Fall Speed`, and `Madeline is Silhouette`.
+Despite this, **this mod explicitly supports a select few Extended Variants**, namely:
+- `Dash Count`
+- `Dash Speed`
+- `Dash Length`
+- `Jump Count`
+- `Jump Boost`
+- `Jump Height`
+- `Gravity` 
+- `Max Fall Speed`
+- `Madeline is Silhouette`.

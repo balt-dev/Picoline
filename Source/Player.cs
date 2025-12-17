@@ -566,7 +566,7 @@ public class Player : global::Celeste.Player {
             
         } else if (DashAttacking) {
             if (StateMachine.state != StRedDash && dashAttackTimer > 0)
-                dashAttackTimer -= Engine.DeltaTime * 60;
+                dashAttackTimer -= Engine.DeltaTime * 60 / ExtVarsDashLength();
             if (StateMachine.state == StRedDash && dash)
                 PicoDash();
             if (!_boosting && StateMachine.state is not StRedDash) AddSmoke(X, Y);
@@ -637,7 +637,7 @@ public class Player : global::Celeste.Player {
                             Sfx(1);
                             _jumpBuffer = 0;
                             _grace = 0;
-                            Speed.Y = -2 * Pico8SpeedUnit;
+                            Speed.Y = -2 * Pico8SpeedUnit * ExtVarsJumpHeight();
                             AddSmoke(X, Y + 4);
                         }
                         else
@@ -648,8 +648,8 @@ public class Player : global::Celeste.Player {
                             {
                                 Sfx(2);
                                 _jumpBuffer = 0;
-                                Speed.Y = -2 * Pico8SpeedUnit;
-                                Speed.X = -wallDir * (MaxRun + 1) * Pico8SpeedUnit;
+                                Speed.Y = -2 * Pico8SpeedUnit * ExtVarsJumpHeight();
+                                Speed.X = -wallDir * (MaxRun + 1) * Pico8SpeedUnit * ExtVarsJumpBoost();
                                 Facing = (Facings) (-wallDir);
                                 
                                 if (LiftSpeed == Vector2.Zero)
@@ -806,6 +806,7 @@ public class Player : global::Celeste.Player {
         _dashTarget.X = 2 * Math.Sign(dashInput.X);
         _dashTarget.Y = 2 * Math.Sign(dashInput.Y);
         if (_boosting) _dashTarget *= 1.5f;
+        _dashTarget *= ExtVarsDashSpeed();
         _dashAccel.X = 1.5f;
         _dashAccel.Y = 1.5f;
 
@@ -827,6 +828,26 @@ public class Player : global::Celeste.Player {
     
     private float __ExtVarsMaxFallUnchecked() => 
         (float) ExtendedVariantsModule.Instance.TriggerManager.GetCurrentVariantValue(ExtendedVariantsModule.Variant.FallSpeed);
+        
+    private float ExtVarsDashSpeed() => PicolineModule.Instance.ExtVarsLoaded ? __ExtVarsDashSpeedUnchecked() : 1;
+    
+    private float __ExtVarsDashSpeedUnchecked() => 
+        (float) ExtendedVariantsModule.Instance.TriggerManager.GetCurrentVariantValue(ExtendedVariantsModule.Variant.DashSpeed);
+        
+    private float ExtVarsDashLength() => PicolineModule.Instance.ExtVarsLoaded ? __ExtVarsDashLengthUnchecked() : 1;
+    
+    private float __ExtVarsDashLengthUnchecked() => 
+        (float) ExtendedVariantsModule.Instance.TriggerManager.GetCurrentVariantValue(ExtendedVariantsModule.Variant.DashLength);
+
+    private float ExtVarsJumpBoost() => PicolineModule.Instance.ExtVarsLoaded ? __ExtVarsJumpBoostUnchecked() : 1;
+    
+    private float __ExtVarsJumpBoostUnchecked() => 
+        (float) ExtendedVariantsModule.Instance.TriggerManager.GetCurrentVariantValue(ExtendedVariantsModule.Variant.JumpBoost);
+
+    private float ExtVarsJumpHeight() => PicolineModule.Instance.ExtVarsLoaded ? __ExtVarsJumpHeightUnchecked() : 1;
+    
+    private float __ExtVarsJumpHeightUnchecked() => 
+        (float) ExtendedVariantsModule.Instance.TriggerManager.GetCurrentVariantValue(ExtendedVariantsModule.Variant.JumpHeight);
     
     private bool ExtVarsConsumeJump() => PicolineModule.Instance.ExtVarsLoaded && __ExtVarsConsumeJumpUnchecked();
 
@@ -841,9 +862,7 @@ public class Player : global::Celeste.Player {
     private bool ExtVarsRefillJumps() => PicolineModule.Instance.ExtVarsLoaded && __ExtVarsRefillJumpsUnchecked();
 
     private bool __ExtVarsRefillJumpsUnchecked() {
-        var jumpCountVar = (JumpCount)
-            ExtendedVariantsModule.Instance.VariantHandlers[ExtendedVariantsModule.Variant.JumpCount];
-        return jumpCountVar.RefillJumpBuffer();
+        return JumpCount.RefillJumpBuffer();
     }
 
 #nullable disable
