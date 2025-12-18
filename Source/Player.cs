@@ -502,7 +502,6 @@ public class Player : global::Celeste.Player {
 
         bool isUnderwater = SwimCheck();
 
-        // TODO: smoke particles
         if (onGround && !_wasOnGround) {
             AddSmoke(X, Y + 4);
         }
@@ -608,6 +607,8 @@ public class Player : global::Celeste.Player {
                     StateMachine.state = StNormal;
                     if (!onGround)
                         accel = 0.4f;
+                    else
+                        accel *= level.CoreMode == Session.CoreModes.Cold ? 0.15f : 1f;
                     
                     float maxRun = ExtVarsHorizontalSpeed() * MaxRun;
                     
@@ -635,12 +636,20 @@ public class Player : global::Celeste.Player {
                             AddSmoke(X + input * 6, Y);
                     }
 
-                    if (!onGround)
-                        Speed.Y = Approach(Speed.Y / Pico8SpeedUnit, maxfall, gravity * Engine.DeltaTime * 60) * Pico8SpeedUnit;
+                    if (!onGround && !wallBoosting)
+                        Speed.Y = Approach(Speed.Y / Pico8SpeedUnit, maxfall, gravity * Engine.DeltaTime * 60 * (level.InSpace ? SpacePhysicsMult : 1)) * Pico8SpeedUnit;
 
                     if (Input.GrabCheck && ClimbCheck((int)Facing)) {
-                        AddSmoke(X, Y);
+                        if (!wallBoosting) { AddSmoke(X, Y); }
                         ClimbTrigger((int) Facing);
+                    } else if (wallBoosting) {
+                        wallBoosting = false;
+                        if (conveyorLoopSfx != null)
+                        {
+                            conveyorLoopSfx.setParameterValue("end", 1);
+                            conveyorLoopSfx.release();
+                            conveyorLoopSfx = null;
+                        }
                     }
                     
                     // jump
@@ -698,11 +707,32 @@ public class Player : global::Celeste.Player {
                     foreach (Holdable hold in Scene.Tracker.GetComponents<Holdable>())
                         if (hold.Check(this) && Pickup(hold))
                             break;
-            } else if (Holding != null) {
-                if (Ducking)
-                    Drop();
-                else
-                    Throw();
+                            var booster = WallBoosterCheck();
+                if (booster != null) {
+                    wallBoosting = true;
+    
+                    if (conveyorLoopSfx == null)
+                        conveyorLoopSfx = Audio.Play("event:/game/09_core/conveyor_activate", "end", 0);
+                    Audio.Position(conveyorLoopSfx, Position);
+                    
+                    Speed.Y = Calc.Approach(Speed.Y, WallBoosterSpeed, WallBoosterAccel * Engine.DeltaTime);
+                    LiftSpeed = Vector2.UnitY * Math.Max(Speed.Y, WallBoosterLiftSpeed);
+                    Input.Rumble(RumbleStrength.Light, RumbleLength.Short);
+                }
+            } else {
+                wallBoosting = false;
+                if (conveyorLoopSfx != null)
+                {
+                    conveyorLoopSfx.setParameterValue("end", 1);
+                    conveyorLoopSfx.release();
+                    conveyorLoopSfx = null;
+                }
+                if (Holding != null) {
+                    if (Ducking)
+                        Drop();
+                    else
+                        Throw();
+                }
             }
         }
         
@@ -1051,7 +1081,10 @@ public class Player : global::Celeste.Player {
             foreach (var node in Hair.Nodes)
             {
                 var hairSize = StateMachine.State == StStarFly && i == 0 ? 3 : i < 2 ? 2 : 1;
-                PicoCircle(new Vector2(node.X, node.Y), hairSize + 1, Color.Black);
+                PicoCircle(new Vector2(node.X - 1, node.Y), hairSize, Color.Black);
+                PicoCircle(new Vector2(node.X + 1, node.Y), hairSize, Color.Black);
+                PicoCircle(new Vector2(node.X, node.Y - 1), hairSize, Color.Black);
+                PicoCircle(new Vector2(node.X, node.Y + 1), hairSize, Color.Black);
                 i++;
             }
             i = 0;
