@@ -9,9 +9,7 @@ The license for this code is found in [LICENSE-CELESTE](./LICENSE-CELESTE).
 
 ## Note about compatibility
 
-This mod replaces the Player object with a class extending it whenever a level is loaded.
-
-Along with this, when PICO-8 mode is active, the player **does not call `base.Update()` or `base.Render()`.**
+When PICO-8 mode is active, the player **does not call `base.Update()` or `base.Render()`.**
 
 All mechanics _in the vanilla game that are not left unused_ have been tested and work.
 
