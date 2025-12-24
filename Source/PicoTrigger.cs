@@ -7,39 +7,54 @@ using Monocle;
 namespace Celeste.Mod.Picoline;
 
 [CustomEntity("PicoTrigger")]
-public class PicoTrigger : Trigger {
-    private readonly RefillKind _refillKind;
-    
-    public PicoTrigger(EntityData data, Vector2 offset) : base(data, offset) {
-        _refillKind = (string) data.Values["kind"] switch {
-            "on" => RefillKind.On,
-            "off" => RefillKind.Off,
-            "swap" => RefillKind.Swap,
-            "inside" => RefillKind.Inside,
-            "outside" => RefillKind.Outside,
-            _ => throw new InvalidEnumArgumentException("Attribute \"kind\" of PICO-8 Trigger must be either \"on\", \"off\", \"swap\", \"inside\", or \"outside\"")
-        };
-    }
+public class PicoTrigger(EntityData data, Vector2 offset) : Trigger(data, offset) {
+    private readonly RefillKind _refillKind = (string)data.Values["kind"] switch {
+        "on" => RefillKind.On,
+        "off" => RefillKind.Off,
+        "swap" => RefillKind.Swap,
+        "inside" => RefillKind.Inside,
+        "outside" => RefillKind.Outside,
+        _ => throw new InvalidEnumArgumentException("Attribute \"kind\" of PICO-8 Trigger must be either \"on\", \"off\", \"swap\", \"inside\", or \"outside\"")
+    };
 
-    public override void OnEnter(global::Celeste.Player player) {
+    public override void OnEnter(Player player) {
         base.OnEnter(player);
-        if (player is not Player picoPlayer)
-            return;
-        picoPlayer.Overriding = _refillKind switch {
-            RefillKind.Swap => !picoPlayer.Overriding,
-            RefillKind.Inside or RefillKind.On => true,
-            RefillKind.Outside or RefillKind.Off => false,
-        };
+        switch (_refillKind) {
+            case RefillKind.Swap:
+                if (player.Get<PicoOverrideComponent>() is {} comp1)
+                    player.Remove(comp1);
+                else
+                    player.Add(new PicoOverrideComponent(true, true));
+                break;
+            case RefillKind.Inside or RefillKind.On:
+                if (player.Get<PicoOverrideComponent>() == null)
+                    player.Add(new PicoOverrideComponent(true, true));
+                break;
+            default:
+                if (player.Get<PicoOverrideComponent>() is {} comp3)
+                    player.Remove(comp3);
+                break;
+        }
     }
 
-    public override void OnLeave(global::Celeste.Player player) {
+    public override void OnLeave(Player player) {
         base.OnLeave(player);
-        if (player is not Player picoPlayer)
-            return;
-        picoPlayer.Overriding = _refillKind switch {
-            RefillKind.Inside => false,
-            RefillKind.Outside => true,
-            _ => picoPlayer.Overriding
-        };
+        switch (_refillKind) {
+            case RefillKind.Swap:
+                if (player.Get<PicoOverrideComponent>() is {} comp1)
+                    player.Remove(comp1);
+                else
+                    player.Add(new PicoOverrideComponent(true, true));
+                break;
+            case RefillKind.Inside:
+                if (player.Get<PicoOverrideComponent>() is {} comp3)
+                    player.Remove(comp3);
+                break;
+            case RefillKind.Outside:
+                if (player.Get<PicoOverrideComponent>() is not null)
+                    player.Add(new PicoOverrideComponent(true, true));
+                break;
+            default: break;
+        }
     }
 }

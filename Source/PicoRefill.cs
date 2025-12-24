@@ -58,36 +58,43 @@ public class PicoRefill : Refill {
 
     public override void Update() {
         base.Update();
-        var player = level.Tracker.GetEntity<global::Celeste.Player>();
+        var player = level.Tracker.GetEntity<Player>();
         light.Alpha = CanActivate(player) ? 1.0f : 0.3f;
         bloom.Alpha = CanActivate(player) ? 1.0f : 0.3f;
 
     }
 
-    private new void OnPlayer(global::Celeste.Player player) {
+    private new void OnPlayer(Player player) {
         if (!CanActivate(player)) return;
         Audio.Play("event:/game/general/diamond_touch", Position);
         Input.Rumble(RumbleStrength.Medium, RumbleLength.Medium);
         Collidable = false;
         respawnTimer = 2.5f;
-        
-        if (player is not Player picoPlayer)
-            return;
-        picoPlayer.Overriding = _refillKind switch {
-            RefillKind.Swap => !picoPlayer.Overriding,
-            RefillKind.On => true,
-            _ => false
-        };
-        
+        switch (_refillKind) {
+            case RefillKind.Swap:
+                if (player.Get<PicoOverrideComponent>() is {} comp1)
+                    player.Remove(comp1);
+                else
+                    player.Add(new PicoOverrideComponent(true, true));
+                break;
+            case RefillKind.On:
+                if (player.Get<PicoOverrideComponent>() == null)
+                    player.Add(new PicoOverrideComponent(true, true));
+                break;
+            default:
+                if (player.Get<PicoOverrideComponent>() is {} comp3)
+                    player.Remove(comp3);
+                break;
+        }
+
         Add(new Coroutine(RefillRoutine(player)));
     }
     
-    private bool CanActivate(global::Celeste.Player player) {
-        if (player is not Player picoPlayer) return false;
+    private bool CanActivate(Player player) {
         return _refillKind switch {
             RefillKind.Swap => true,
-            RefillKind.On when !picoPlayer.Overriding => true,
-            RefillKind.Off when picoPlayer.Overriding => true,
+            RefillKind.On when player.Get<PicoOverrideComponent>() == null => true,
+            RefillKind.Off when player.Get<PicoOverrideComponent>() != null => true,
             _ => false
         };
     }
