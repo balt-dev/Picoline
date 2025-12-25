@@ -614,7 +614,7 @@ public class PicoPlayer
                                 Sfx(2);
                                 _jumpBuffer = 0;
                                 self.Speed.Y = -2 * Pico8SpeedUnit * ExtVarsJumpHeight();
-                                self.Speed.X = -wallDir * (MaxRun + 1) * Pico8SpeedUnit * ExtVarsJumpBoost();
+                                self.Speed.X = -wallDir * (MaxRun + 1) * Pico8SpeedUnit;
                                 self.Facing = (Facings) (-wallDir);
                                 
                                 if (self.LiftSpeed == Vector2.Zero)
@@ -824,11 +824,6 @@ public class PicoPlayer
     
     private float __ExtVarsDashLengthUnchecked() => 
         (float) ExtendedVariantsModule.Instance.TriggerManager.GetCurrentVariantValue(ExtendedVariantsModule.Variant.DashLength);
-
-    private float ExtVarsJumpBoost() => PicolineModule.Instance.ExtVarsLoaded ? __ExtVarsJumpBoostUnchecked() : 1;
-    
-    private float __ExtVarsJumpBoostUnchecked() => 
-        (float) ExtendedVariantsModule.Instance.TriggerManager.GetCurrentVariantValue(ExtendedVariantsModule.Variant.JumpBoost);
 
     private float ExtVarsJumpHeight() => PicolineModule.Instance.ExtVarsLoaded ? __ExtVarsJumpHeightUnchecked() : 1;
     
