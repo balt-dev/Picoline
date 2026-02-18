@@ -59,12 +59,14 @@ public class PicoRefill : Refill {
     public override void Update() {
         base.Update();
         var player = level.Tracker.GetEntity<Player>();
+        if (player == null) return;
         light.Alpha = CanActivate(player) ? 1.0f : 0.3f;
         bloom.Alpha = CanActivate(player) ? 1.0f : 0.3f;
 
     }
 
     private new void OnPlayer(Player player) {
+        if (player == null) return;
         if (!CanActivate(player)) return;
         Audio.Play("event:/game/general/diamond_touch", Position);
         Input.Rumble(RumbleStrength.Medium, RumbleLength.Medium);
@@ -91,6 +93,7 @@ public class PicoRefill : Refill {
     }
     
     private bool CanActivate(Player player) {
+        if (player == null) return false;
         return _refillKind switch {
             RefillKind.Swap => true,
             RefillKind.On when player.Get<PicoOverrideComponent>() == null => true,
