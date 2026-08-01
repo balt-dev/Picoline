@@ -4,7 +4,7 @@ using Celeste.Mod.Entities;
 using Microsoft.Xna.Framework;
 using Monocle;
 
-namespace Celeste.Mod.Picoline;
+namespace Celeste.Mod.Picoline.Entities;
 
 [CustomEntity("PicoTrigger")]
 public class PicoTrigger(EntityData data, Vector2 offset) : Trigger(data, offset) {
@@ -21,18 +21,13 @@ public class PicoTrigger(EntityData data, Vector2 offset) : Trigger(data, offset
         base.OnEnter(player);
         switch (_refillKind) {
             case RefillKind.Swap:
-                if (player.Get<PicoOverrideComponent>() is {} comp1)
-                    player.Remove(comp1);
-                else
-                    player.Add(new PicoOverrideComponent(true, true));
+                PicolineModule.ShouldBePicoline ^= true;
                 break;
             case RefillKind.Inside or RefillKind.On:
-                if (player.Get<PicoOverrideComponent>() == null)
-                    player.Add(new PicoOverrideComponent(true, true));
+                PicolineModule.ShouldBePicoline = true;
                 break;
             default:
-                if (player.Get<PicoOverrideComponent>() is {} comp3)
-                    player.Remove(comp3);
+                PicolineModule.ShouldBePicoline = false;
                 break;
         }
     }
@@ -40,19 +35,11 @@ public class PicoTrigger(EntityData data, Vector2 offset) : Trigger(data, offset
     public override void OnLeave(Player player) {
         base.OnLeave(player);
         switch (_refillKind) {
-            case RefillKind.Swap:
-                if (player.Get<PicoOverrideComponent>() is {} comp1)
-                    player.Remove(comp1);
-                else
-                    player.Add(new PicoOverrideComponent(true, true));
-                break;
             case RefillKind.Inside:
-                if (player.Get<PicoOverrideComponent>() is {} comp3)
-                    player.Remove(comp3);
+                PicolineModule.ShouldBePicoline = false;
                 break;
             case RefillKind.Outside:
-                if (player.Get<PicoOverrideComponent>() is not null)
-                    player.Add(new PicoOverrideComponent(true, true));
+                PicolineModule.ShouldBePicoline = true;
                 break;
             default: break;
         }

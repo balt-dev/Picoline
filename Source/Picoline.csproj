@@ -5,9 +5,10 @@
         <AssemblyName>Picoline</AssemblyName>
         <RootNamespace>Celeste.Mod.Picoline</RootNamespace>
         <LangVersion>latest</LangVersion>
+        <Nullable>enable</Nullable>
         <CelestePrefix Condition="'$(CelestePrefix)' == '' And Exists('..\..\..\Celeste.dll')">..\..\..</CelestePrefix>
         <CelestePrefix Condition="'$(CelestePrefix)' == ''">lib-stripped</CelestePrefix>
-        <ZippedFiles>..\everest.yaml;..\bin\**\*.*;..\Audio\**\*.*;..\Dialog\**\*.*;..\Graphics\**\*.*;..\Ahorn\**\*.*;..\Loenn\**\*.*;..\Maps\**\*.*</ZippedFiles>
+        <ZippedFiles>..\everest.yaml;..\bin\**\*.*;..\Audio\**\*.*;..\Dialog\**\*.*;..\Graphics\**\*.*;..\Ahorn\**\*.*;..\Loenn\**\*.*</ZippedFiles>
     </PropertyGroup>
 
     <!--Disable "Copy Local" for all references-->
@@ -17,9 +18,11 @@
     </ItemDefinitionGroup>
 
     <ItemGroup>
-        <PackageReference Include="MonoMod.RuntimeDetour" Version="25.0.2" PrivateAssets="all" ExcludeAssets="runtime" />
+        <PackageReference Include="MonoMod.RuntimeDetour" Version="25.3.1" PrivateAssets="all" ExcludeAssets="runtime" />
         <PackageReference Include="MonoMod.Patcher" Version="25.0.0-prerelease.2" />
         <PackageReference Include="CelesteAnalyzer" Version="*" />
+        <PackageReference Include="ModInteropImportGenerator" Version="*" />
+        <PackageReference Include="CelesteMod.Roslyn.ModLifecycleAttributes" Version="*" />
     </ItemGroup>
 
     <ItemGroup>
@@ -27,7 +30,8 @@
         <Reference Include="$(CelestePrefix)\MMHOOK_Celeste.dll" Private="false" />
         <Reference Include="$(CelestePrefix)\FNA.dll" Private="false" />
         <Reference Include="ExtendedVariantMode">
-          <HintPath>..\lib\ExtendedVariantMode.dll</HintPath>
+	        <HintPath>$(CelestePrefix)\Mods\Cache\ExtendedVariantMode.ExtendedVariantMode.dll</HintPath>
+	        <Private>False</Private>
         </Reference>
     </ItemGroup>
 
@@ -42,7 +46,7 @@
         </ItemGroup>
         <PackageMod Files="@(FilesToPackage)" OutputPath="..\Picoline.zip" />
     </Target>
-    
+
     <PropertyGroup>
         <PathMap>$(MSBuildProjectDirectory)=Picoline/</PathMap>
     </PropertyGroup>
@@ -62,7 +66,7 @@
             <![CDATA[
                 var projectDir = Path.Combine(@"$(ProjectDir)", ".."); // Go one level up, since we're inside the 'Source' directory
                 projectDir = Uri.UnescapeDataString(projectDir);
-            
+
                 if (File.Exists(OutputPath))
                     File.Delete(OutputPath);
 
@@ -72,29 +76,29 @@
                     {
                         string filePath = file.GetMetadata("FullPath");
                         string entryName = GetRelativePath(projectDir, filePath);
-                        
+
                         zip.CreateEntryFromFile(filePath, entryName);
                     }
                 }
-    
+
                 string GetRelativePath(string fromPath, string toPath)
                 {
                     if (string.IsNullOrEmpty(fromPath)) throw new ArgumentNullException(nameof(fromPath));
                     if (string.IsNullOrEmpty(toPath))   throw new ArgumentNullException(nameof(toPath));
-                
+
                     Uri fromUri = new Uri(fromPath);
                     Uri toUri = new Uri(toPath);
-                
+
                     if (fromUri.Scheme != toUri.Scheme) { return toPath; } // path can't be made relative.
-                
+
                     Uri relativeUri = fromUri.MakeRelativeUri(toUri);
                     string relativePath = Uri.UnescapeDataString(relativeUri.ToString());
-                
+
                     if (toUri.Scheme.Equals("file", StringComparison.InvariantCultureIgnoreCase))
                     {
                         relativePath = relativePath.Replace(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
                     }
-                
+
                     return relativePath;
                 }
             ]]>

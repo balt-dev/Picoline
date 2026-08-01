@@ -3,13 +3,14 @@ using Celeste.Mod.Entities;
 using Microsoft.Xna.Framework;
 using Monocle;
 
-namespace Celeste.Mod.Picoline;
+namespace Celeste.Mod.Picoline.Entities;
 
 [CustomEntity("PicoRefill")]
 public class PicoRefill : Refill {
     private readonly RefillKind _refillKind;
     
     public PicoRefill(EntityData data, Vector2 offset) : base(data, offset) {
+        // i should use data.Enum for this but i have to keep it like this for backwards compat
         _refillKind = (string) data.Values["kind"] switch {
             "on" => RefillKind.On,
             "off" => RefillKind.Off,
@@ -20,7 +21,8 @@ public class PicoRefill : Refill {
         var idleSprite = _refillKind switch {
             RefillKind.Swap => new Sprite(GFX.Game, "objects/picoRefill/swap_idle"),
             RefillKind.On => new Sprite(GFX.Game, "objects/picoRefill/on_idle"),
-            RefillKind.Off => new Sprite(GFX.Game, "objects/picoRefill/off_idle")
+            RefillKind.Off => new Sprite(GFX.Game, "objects/picoRefill/off_idle"),
+            _ => null!
         };
         idleSprite.AddLoop("idle", "", 0.1f);
         idleSprite.Play("idle");
@@ -46,12 +48,12 @@ public class PicoRefill : Refill {
         Get<PlayerCollider>().OnCollide = OnPlayer;
 
         p_regen = new ParticleType(p_regen) {
-            Color = PicoColors.White,
+            Color = Pico.Utils.Colors.White,
             ColorMode = ParticleType.ColorModes.Static,
         };
         
         p_glow = new ParticleType(p_glow) {
-            Color = PicoColors.White,
+            Color = Pico.Utils.Colors.White,
             ColorMode = ParticleType.ColorModes.Static,
         };
     }
@@ -74,18 +76,13 @@ public class PicoRefill : Refill {
         respawnTimer = 2.5f;
         switch (_refillKind) {
             case RefillKind.Swap:
-                if (player.Get<PicoOverrideComponent>() is {} comp1)
-                    player.Remove(comp1);
-                else
-                    player.Add(new PicoOverrideComponent(true, true));
+                PicolineModule.ShouldBePicoline ^= true;
                 break;
             case RefillKind.On:
-                if (player.Get<PicoOverrideComponent>() == null)
-                    player.Add(new PicoOverrideComponent(true, true));
+                PicolineModule.ShouldBePicoline = true;
                 break;
             default:
-                if (player.Get<PicoOverrideComponent>() is {} comp3)
-                    player.Remove(comp3);
+                PicolineModule.ShouldBePicoline = false;
                 break;
         }
 
@@ -96,8 +93,8 @@ public class PicoRefill : Refill {
         if (player == null) return false;
         return _refillKind switch {
             RefillKind.Swap => true,
-            RefillKind.On when player.Get<PicoOverrideComponent>() == null => true,
-            RefillKind.Off when player.Get<PicoOverrideComponent>() != null => true,
+            RefillKind.On => !PicolineModule.ShouldBePicoline,
+            RefillKind.Off => PicolineModule.ShouldBePicoline,
             _ => false
         };
     }

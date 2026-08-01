@@ -1,4 +1,4 @@
-namespace Celeste.Mod.Picoline;
+namespace Celeste.Mod.Picoline.Entities;
 
 public enum RefillKind {
     On,
