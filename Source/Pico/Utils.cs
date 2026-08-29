@@ -128,4 +128,10 @@ internal static class Utils {
         public Color Pink => this[14];
         public Color Cream => this[15];
     }
+    
+    [Command("picoplayer", "Swaps the state of the PICO-8 refill.")]
+    internal static void CmdPicoPlayer() {
+        if (Engine.Scene is not Level level) return;
+        PicolineModule.ShouldBePicoline ^= true;
+    }
 }

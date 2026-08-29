@@ -40,7 +40,8 @@ public class PicoComponent() : Component(false, false) {
         player.Hair.Active = false;
         player.Hair.Visible = false;
         player.Light.Position += new Vector2(3, 6);
-        player.carryOffset = new Vector2(4, 1);
+        player.carryOffset = new Vector2(0, -7);
+        
         FixHitbox();
         if (player.dreamSfxLoop == null) {
             player.Add(player.dreamSfxLoop = new SoundSource());
@@ -71,6 +72,8 @@ public class PicoComponent() : Component(false, false) {
     private const int MaxRun = 1;
     private const float Deceleration = 0.075f;
     public const float Pico8SpeedUnit = 60;
+    
+    private const float PickupTime = 0.16f;
 
     internal static readonly Random Rand = new();
 
@@ -82,8 +85,9 @@ public class PicoComponent() : Component(false, false) {
     internal bool WasOnGround;
     internal int LastState;
     internal bool Demodashing;
-
-    public float BoostTimer;
+    internal bool RedDashing;
+    internal float BoostTimer;
+    internal float PickupTimer;
 
     private static float Approach(float val, float target, float amount) {
         return val <= target ? Math.Min(val + amount, target) : Math.Max(val - amount, target);
@@ -217,7 +221,7 @@ public class PicoComponent() : Component(false, false) {
         var jump = Input.Jump.Pressed && !player.level.InCutscene;
 
         var dash = (Input.Dash.Pressed || Input.CrouchDash.Pressed) && !player.level.InCutscene;
-        var demo = Input.CrouchDash.Pressed;
+        var demo = Input.CrouchDash.Pressed && !player.level.InCutscene;
 
         player.Ducking = player.onGround && Input.MoveY > 0;
 
@@ -239,8 +243,42 @@ public class PicoComponent() : Component(false, false) {
             player.SummitLaunchUpdate();
             goto EndChecks;
         }
-
-        if (player.StateMachine.state != Player.StStarFly && (LastState == Player.StStarFly || player.starFlyTimer > 0)) {
+        
+        if (PickupTimer > 0f) {
+            PickupTimer -= Engine.DeltaTime;
+            float factor = PickupTimer / PickupTime;
+            factor = factor * factor * factor;
+            player.carryOffset = (
+                Vector2.UnitX * ((int) player.Facing) * MathF.Sin(factor * MathF.PI / 2) +
+                -Vector2.UnitY * MathF.Cos(factor * MathF.PI / 2)
+            ) * 7;
+            return;
+        }
+        player.carryOffset = new Vector2(0, -7);
+        if (player.StateMachine.state == Player.StBoost && !player.Dead) {
+            if (player.LastBooster is not null && player.LastBooster.BoostingPlayer) {
+                player.LastBooster.PlayerReleased();
+                player.CurrentBooster = player.LastBooster = null;
+                RedDashing = false;
+            }
+            player.Speed = Vector2.Zero;
+            player.MoveToX(player.boostTarget.X);
+            player.MoveToY(player.boostTarget.Y);
+            BoostTimer = 0.25f;
+        } else if (BoostTimer > 0f && !player.Dead) {
+            BoostTimer -= Engine.DeltaTime;
+            player.Speed = Vector2.Zero;
+            player.MoveToX(player.boostTarget.X);
+            player.MoveToY(player.boostTarget.Y);
+            if (BoostTimer <= 0f || dash) {
+                dash = false;
+                BoostTimer = 0f;
+                player.demoDashed = demo;
+                PicoDash(demo);
+                RedDashing = player.boostRed;
+                player.CurrentBooster = null;
+            }
+        } else if (player.StateMachine.state != Player.StStarFly && (LastState == Player.StStarFly || player.starFlyTimer > 0)) {
             player.StarFlyEnd();
             player.starFlyTransforming = false;
             player.starFlyTimer = 0;
@@ -253,6 +291,10 @@ public class PicoComponent() : Component(false, false) {
             }
             player.StateMachine.state = Player.StStarFly;
             if (LastState != Player.StStarFly) player.StarFlyBegin();
+        }
+        
+        if (player.LastBooster == null || !player.LastBooster.BoostingPlayer) {
+            RedDashing = false;
         }
 
         if (player.starFlyTransforming) {
@@ -363,12 +405,20 @@ public class PicoComponent() : Component(false, false) {
 
 
         } else if (player.DashAttacking) {
-            if (player.StateMachine.state != Player.StRedDash && player.dashAttackTimer > 0)
-                player.dashAttackTimer -= Engine.DeltaTime * 60 / ExtVarsDashLength();
-            if (player.StateMachine.state == Player.StRedDash && dash) {
-                PicoDash(demo);
+            if (player.StateMachine.state == Player.StBoost) {
+                RedDashing = false;
+                player.dashAttackTimer = 0;
+            } else {
+                if (!RedDashing && player.dashAttackTimer > 0) {
+                    if (Scene.OnInterval(Utils.SecondsPerTick))
+                    AddSmoke(player.X, player.Y);
+                    player.dashAttackTimer -= Engine.DeltaTime * 60 / ExtVarsDashLength();
+                }
+                if (RedDashing && dash && BoostTimer <= 0f) {
+                    RedDashing = false;
+                    PicoDash(demo);
+                }
             }
-            AddSmoke(player.X, player.Y);
         } else {
             if (player.dreamSfxLoop is not null) player.Stop(player.dreamSfxLoop);
 
@@ -484,6 +534,12 @@ public class PicoComponent() : Component(false, false) {
                     foreach (Holdable hold in player.Scene.Tracker.GetComponents<Holdable>())
                         if (hold.Check(player) && player.Pickup(hold)) {
                             Audio.Play("event:/char/madeline/crystaltheo_lift");
+                            
+                            // Recreate lift shenanigans
+                            player.carryOffset = Vector2.UnitX * (int) player.Facing * 7;
+                            PickupTimer = PickupTime;
+                            player.Speed.Y = Math.Min(player.Speed.Y, 0);
+                            
                             break;
                         }
                 var booster = player.WallBoosterCheck();
@@ -584,7 +640,7 @@ public class PicoComponent() : Component(false, false) {
         HairPos = player.Position;
 
     End:
-    
+
         FixHitbox();
         WasOnGround = player.onGround;
         LastState = player.StateMachine.state;
@@ -608,34 +664,42 @@ public class PicoComponent() : Component(false, false) {
         player.DashDir = dashInput;
         Demodashing = demo;
 
-        AddSmoke(player.X, player.Y);
-        player.Dashes--;
-        player.dashAttackTimer = 8;
+        var boosting = false;
         player.StateMachine.state = Player.StDash;
+        
+        if (player.CurrentBooster is Booster booster) {
+            boosting = true;
+            player.dashAttackTimer = 12;
+            booster.PlayerBoosted(player, dashInput);
+        } else {
+            player.dashAttackTimer = 8;
+            AddSmoke(player.X, player.Y);
+            player.Dashes--;
+            
+            Celeste.Freeze(0.05f);
+            Input.Rumble(RumbleStrength.Strong, RumbleLength.Medium);
+            Utils.PSfx(3);
 
-        Utils.PSfx(3);
-        Celeste.Freeze(0.05f);
-        Input.Rumble(RumbleStrength.Strong, RumbleLength.Medium);
-
-        ++SaveData.Instance.TotalDashes;
-        ++player.level.Session.Dashes;
-        Stats.Increment(Stat.DASHES);
-        foreach (DashListener component in player.Scene.Tracker.GetComponents<DashListener>())
-            component.OnDash?.Invoke(player.DashDir);
+            ++SaveData.Instance.TotalDashes;
+            ++player.level.Session.Dashes;
+            Stats.Increment(Stat.DASHES);
+            foreach (DashListener component in player.Scene.Tracker.GetComponents<DashListener>())
+                component.OnDash?.Invoke(player.DashDir);
+        }
 
         player.calledDashEvents = true;
 
-        player.Speed = dashInput * 2.5f * Pico8SpeedUnit;
+        player.Speed = dashInput * 2.5f * Pico8SpeedUnit * (boosting ? 1.5f : 1);
 
         if (player.Scene is Level level)
             level.Shake(6f / 30f);
         DashTarget.X = 2 * Math.Sign(dashInput.X);
         DashTarget.Y = 2 * Math.Sign(dashInput.Y);
-        DashTarget *= ExtVarsDashSpeed();
+        DashTarget *= ExtVarsDashSpeed() * (boosting ? 1.5f : 1);
         _dashAccel.X = 1.5f;
         _dashAccel.Y = 1.5f;
 
-        if (player.Speed.Y < 0)
+        if (player.Speed.Y < 0 && !boosting)
             DashTarget.Y *= 0.75f;
         // Manual normalization?
         if (player.Speed.Y != 0)
@@ -683,7 +747,7 @@ public class PicoComponent() : Component(false, false) {
         JumpCount.SetJumpCount(--jumpBuffer, false);
         return true;
     }
-    
+
     private void ExtVarsResetJumps() { if (PicolineModule.ExtVarsLoaded) { __ExtVarsResetJumpsUnchecked(); } }
 
     private void __ExtVarsResetJumpsUnchecked() {
